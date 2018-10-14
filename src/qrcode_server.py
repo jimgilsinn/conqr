@@ -20,6 +20,10 @@ from email.MIMEText import MIMEText
 import urlparse
 import multiprocessing
 
+# default files
+con_file = "database/conference.txt"
+reg_file = "database/registered.txt"
+
 # main dns class
 class DNSQuery:
   def __init__(self, data):
@@ -71,87 +75,131 @@ def dns(ipaddr):
 p = multiprocessing.Process(target=dns, args=(ipaddr,))
 p.start()
 
-			
+# Read the conference file and store the data in a set of lists. This is a major difference from the original conqr
+# code. The reason is to allow the conqr code to send the ticket type and email along with the HTML response to the
+# QR reader system. This allows the QR Reader system to provide feedback to the attendant to provide the correct ticket
+# to the attendee.
+reg_list = []
+email_list = []
+ticket_list = []
+def ReadConFile(file):
+  if not os.path.isfile(file):
+    print("File path {} does not exist. Exiting...".format(con_file))
+    sys.exit()
+
+  with open(con_file, 'r') as cf:
+    cnt = 0
+    for line in cf:
+      field = line.split(',')
+      reg_list.append(field[0])
+      email_list.append(field[1])
+      ticket_list.append(field[2])
+      cnt += 1
+
 # Handler for handling POST requests and general setup through SSL
 class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
-	# handle basic GET requests
-	def do_GET(self):
-	# import proper style css files here
-		parsed_path = urlparse.urlparse(self.path)
+  # handle basic GET requests
+  def do_GET(self):
+    # import proper style css files here
+    parsed_path = urlparse.urlparse(self.path)
 
-		counter = 0
+    counter = 0
 
-		path = parsed_path.path
-		query = parsed_path.query
+    path = parsed_path.path
+    query = parsed_path.query
 
-		if path == "/qrcode":
-			query = query.replace("q=", "")
-			self.send_response(200)
-			self.send_header('Content_type', 'text/html')
-			self.end_headers()
-			fileopen = file("database/conference.txt", "r")
-			data = fileopen.read()
-			if query in data:
-				if not os.path.isfile("database/registered.txt"):
-					filewrite = file("database/registered.txt", "w")
-					filewrite.write("")
-					filewrite.close()
+    if path == "/qrcode":
+      query = query.replace("q=", "")
+      self.send_response(200)
+      self.send_header('Content_type', 'text/html')
+      self.end_headers()
+      i = 0
+      found = False
+      for q in reg_list:
+        if q == query:
+          found = True
+          break
+        i += 1
 
-				reg = file("database/registered.txt", "r")
-				reg_write = file("database/registered.txt", "a")
-				reg_data = reg.read()
-				if query in reg_data:
-					self.wfile.write("User has already registered at the desk. Please check into this.")
+      if found:
+        # If the registration file does not exist, touch the file to create it.
+        if not os.path.isfile(reg_file, 'r'):
+          touchfile = file(reg_file, 'w')
+          touchfile.write("")
+          touchfile.close()
 
-				else:
-					reg_write.write(query)
-					reg_write.close()
-					self.wfile.write('<html><body><BODY BGCOLOR="#66ff66">User has been registered successfully. Refreshing in 10 seconds.<meta HTTP-EQUIV="REFRESH" content="10; url=./"></body></html>')
+        # Look for the code in the existing list of codes to see if it's been already registered.
+        reg = file(reg_file, 'r')
+        reg_data = reg.read()
+        if query in reg_data:
+          # If the code already exists in the registration file, send back the duplicate response.
+          self.wfile.write("<html><head><meta name=\"description\" content=\"duplicate\"></head>")
+          self.wfile.write("<body bgcolor=\"#FF6666\">User has already registered at the desk. Please check into this.</body></html>")
+        else:
+          # Code does not exist in the registration file, so append it to the end.
+          reg_write = file(reg_file, 'a')
+          reg_write.write(query)
+          reg_write.close()
 
-            	# if it doesnt match then write user wasnt found
-            	else:
-   				self.wfile.write('<html><body>[!] User was not found. Try manual methods :-(')
+          # Then, send the correct response to the QR reader system with the correct information included.
+          self.wfile.write("<html><head><meta name=\"description\" content=\"registered\">")
+          self.wfile.write("<meta name=\"code\" content=\"" + query + "\">")
+          self.wfile.write("<meta name=\"email\" content=\"" + email_list[i] + "\">")
+          self.wfile.write("<meta name=\"ticket\" content=\"" + ticket_list[i] + "\">")
+          self.wfile.write("</head>")
+          self.wfile.write("<body bgcolor=\"#66ff66\">User has been registered successfully. ")
+          self.wfile.write("Refreshing in 10 seconds.<meta HTTP-EQUIV=\"REFRESH\" content=\"10; url=./\">")
+          self.wfile.write("</body></html>")
+      else:
+        self.wfile.write("<html><head><meta name=\"description\" content=\"unknown\"></head>")
+        self.wfile.write("<body bgcolor=\"#FFFF66\">[!] User was not found. Try manual methods. :-(</body></html>")
 
-		if self.path == "/":
-        	        self.send_response(200)
-        	        self.send_header('Content_type', 'text/html')
-        	        self.end_headers()
-                        # title here
-                        self.wfile.write("<html><title>ConQR Central Registration Web Server</title>")
-                        # main body of the site
-                        self.wfile.write("""
-  <body onload="document.barcodeform.barcode.focus()">
- <b><br><br><br><center>
-<b>Welcome to the ConQR QRCode and Ticketing Web System.</b>
-<br><br>
-Written by: David Kennedy<br>
-Website: <a href="https://www.trustedsec.com">https://www.trustedsec.com</a><br>
-Twitter: <a href="https://twitter.com/HackingDave">HackingDave</a> and <a href="https://twitter.com/trustedsec">TrustedSec</a><br>
+    # Display this message is someone hits the webserver itself from a browser
+    if self.path == "/":
+      self.send_response(200)
+      self.send_header('Content_type', 'text/html')
+      self.end_headers()
+      self.wfile.write("""
+<html><head><title>ConQR Central Registration Web Server</title></head>
+<body onload="document.barcodeform.barcode.focus()">
+<br />
 
-<br><br>
-Instructions:<br><br>
-Simply scan a QR code using a mobile device of some sort, doesn't matter which application. When scanned, they will be sent here to check to see if they have already registered or not. If they have, it will let you know and register them.
-<br>
-</body>
-""")               
-                        # close up body and html
-                        self.wfile.write("</body></html>")
+<p style="text-align:center; font-weight:bold; font-size:larger;">Welcome to the ConQR QRCode and Ticketing Web System.</p>
+
+<table border="0" style="border-spacing:3px; margin-left:auto; margin-right:auto;">
+<tr><td><div style="font-style:italic">Written by:</div></td><td>David Kennedy</td></tr>
+<tr><td><div style="font-style:italic">Website:</div></td><td><a href="https://www.trustedsec.com" target="_blank">https://www.trustedsec.com</a></td>
+<tr><td><div style="font-style:italic">Twitter:</div></td><td><a href="https://twitter.com/HackingDave" target="_blank">HackingDave</a> and <a href="https://twitter.com/trustedsec" target="_blank">TrustedSec</a></td></tr>
+<tr><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr><td><div style="font-style:italic">Forked &amp; Modified by:</div></td><td>Jim Gilsinn</td></tr>
+<tr><td><div style="font-style:italic">Website:</div></td><td><a href="http://www.jimgilsinn.com" target="_blank">http://www.jimgilsinn.com</a></td>
+<tr><td><div style="font-style:italic">Twitter:</div></td><td><a href="https://twitter.com/JimGilsinn" target="_blank">JimGilsinn</a></td></tr>
+</table>
+
+<br />
+<p style="text-align:left; font-weight:bold; font-size:larger;">Instructions:</p>
+<p>Simply scan a QR code using the PiConReg system. The PiConReg system will display lights and a message on the screen 
+according to whether they are already registered or not. If they are registered, the PiConReg system should also 
+indicate what type of ticket they registered.</p>
+</body></html>
+""")
 
 # this ultimately handles the http requests and stuff
 def main(server_class=BaseHTTPServer.HTTPServer,handler_class=HTTPHandler):
-	try:
-	        server_address = ('', int(80))
-		httpd = server_class(server_address, handler_class)
-		httpd.serve_forever()
+  try:
+    ReadConFile(con_file)
+    server_address = ('', int(80))
+    httpd = server_class(server_address, handler_class)
+    httpd.serve_forever()
 
-        # handle keyboardinterrupts
-        except KeyboardInterrupt:
-                print "[!] Exiting the web server...\n"
-	# handle the rest
-	except Exception, error:
-                print "[!] Something went wrong, printing error: " + str(error)
-		sys.exit()
+  # handle keyboardinterrupts
+  except KeyboardInterrupt:
+    print "[!] Exiting the web server...\n"
+  # handle the rest
+  except Exception, error:
+    print "[!] Something went wrong, printing error: " + str(error)
+    sys.exit()
 
 #if __name__ == "__main__":
 print "{*} The ConQR Server is running on port 80, open a local browser or remote to view... {*}"
