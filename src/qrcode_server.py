@@ -6,6 +6,9 @@
 #  Written by: Dave Kennedy (ReL1K)
 #  Website: https://www.trustedsec.com
 #
+#  Forked & Modified by: Jim Gilsinn (@JimGilsinn)
+#  Website: http://www.jimgilsinn.com
+#
 ################################################################################
 
 import subprocess
@@ -84,10 +87,10 @@ email_list = []
 ticket_list = []
 def ReadConFile(file):
   if not os.path.isfile(file):
-    print("File path {} does not exist. Exiting...".format(con_file))
+    print("File path {} does not exist. Exiting...".format(file))
     sys.exit()
 
-  with open(con_file, 'r') as cf:
+  with open(file, 'r') as cf:
     cnt = 0
     for line in cf:
       field = line.split(',')
