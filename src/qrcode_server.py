@@ -26,6 +26,7 @@ import multiprocessing
 # default files
 con_file = "database/conference.txt"
 reg_file = "database/registered.txt"
+types_file = "database/types.txt"
 
 # main dns class
 class DNSQuery:
@@ -80,7 +81,7 @@ p.start()
 
 # Read the conference file and store the data in a set of lists. This is a major difference from the original conqr
 # code. The reason is to allow the conqr code to send the ticket type and email along with the HTML response to the
-# QR reader system. This allows the QR Reader system to provide feedback to the attendant to provide the correct ticket
+# QR reader system. This allows the QR reader system to provide feedback to the attendant to provide the correct ticket
 # to the attendee.
 reg_list = []
 email_list = []
@@ -97,6 +98,32 @@ def ReadConFile(file):
       reg_list.append(field[0])
       email_list.append(field[1])
       ticket_list.append(field[2])
+      cnt += 1
+
+# Read the badge types file and store the data in a list. This is a major difference from the original conqr code.
+# The list allows the QR reader system to provide feedback to teh attendant to provide the correct ticket to the
+# attendee.
+types_name = []
+types_type = []
+types_description = []
+types_number = []
+types_day = []
+types_color = []
+def ReadTypesFiles(file)
+  if not os.path.isfile(file):
+    print("File path {} does not exist. Exiting...".format(file))
+    sys.exit()
+    
+  with open(file, 'r') as tf:
+    cnt = 0
+    for line in tf:
+      field = line.split(',')
+      types_name.append(field[0])
+      types_type.append(field[1])
+      types_description.append(field[2])
+      types_number.append(field[3])
+      types_day.append(field[4])
+      types_color.append(field[5])
       cnt += 1
 
 # Handler for handling POST requests and general setup through SSL
@@ -138,18 +165,29 @@ class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         if query in reg_data:
           # If the code already exists in the registration file, send back the duplicate response.
           self.wfile.write("<html><head><meta name=\"description\" content=\"duplicate\"></head>")
-          self.wfile.write("<body bgcolor=\"#FF6666\">User has already registered at the desk. Please check into this.</body></html>")
+          self.wfile.write("<body bgcolor=\"#B22222\">User has already registered at the desk. Please check into this.</body></html>")
         else:
           # Code does not exist in the registration file, so append it to the end.
           reg_write = file(reg_file, 'a')
           reg_write.write(query)
           reg_write.close()
+          
+          # Check for the type of ticket that is being registered
+          j = 0
+          for q in types_name:
+            if q == ticket_list[i]
+              break
+            j += 1
 
           # Then, send the correct response to the QR reader system with the correct information included.
           self.wfile.write("<html><head><meta name=\"description\" content=\"registered\">")
           self.wfile.write("<meta name=\"code\" content=\"" + query + "\">")
           self.wfile.write("<meta name=\"email\" content=\"" + email_list[i] + "\">")
-          self.wfile.write("<meta name=\"ticket\" content=\"" + ticket_list[i] + "\">")
+          self.wfile.write("<meta name=\"type\" content=\"" + types_type[j] + "\">")
+          self.wfile.write("<meta name=\"description\" content=\"" + types_description[j] + "\">")
+          self.wfile.write("<meta name=\"number\" content=\"" + types_number[j] + "\">")
+          self.wfile.write("<meta name=\"day\" content=\"" + types_day[j] + "\">")
+          self.wfile.write("<meta name=\"color\" content\"" + types_color[j] + "\">")
           self.wfile.write("</head>")
           self.wfile.write("<body bgcolor=\"#66ff66\">User has been registered successfully. ")
           self.wfile.write("Refreshing in 10 seconds.<meta HTTP-EQUIV=\"REFRESH\" content=\"10; url=./\">")
