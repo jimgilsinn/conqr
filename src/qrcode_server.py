@@ -105,7 +105,7 @@ def ReadConFile(file):
 # attendee.
 types_name = []
 types_type = []
-types_description = []
+types_title = []
 types_number = []
 types_day = []
 types_color = []
@@ -120,7 +120,7 @@ def ReadTypesFiles(file)
       field = line.split(',')
       types_name.append(field[0])
       types_type.append(field[1])
-      types_description.append(field[2])
+      types_title.append(field[2])
       types_number.append(field[3])
       types_day.append(field[4])
       types_color.append(field[5])
@@ -186,7 +186,7 @@ class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
           self.wfile.write("<meta name=\"code\" content=\"" + query + "\">")
           self.wfile.write("<meta name=\"email\" content=\"" + email_list[i] + "\">")
           self.wfile.write("<meta name=\"type\" content=\"" + types_type[j] + "\">")
-          self.wfile.write("<meta name=\"description\" content=\"" + types_description[j] + "\">")
+          self.wfile.write("<meta name=\"title\" content=\"" + types_title[j] + "\">")
           self.wfile.write("<meta name=\"number\" content=\"" + types_number[j] + "\">")
           self.wfile.write("<meta name=\"day\" content=\"" + types_day[j] + "\">")
           self.wfile.write("<meta name=\"color\" content\"" + types_color[j] + "\">")
