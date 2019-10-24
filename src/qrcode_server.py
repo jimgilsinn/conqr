@@ -169,7 +169,9 @@ class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         else:
           # Code does not exist in the registration file, so append it to the end.
           reg_write = file(reg_file, 'a')
-          reg_write.write(query)
+		  reg_line = reg_list[i] + ", " + email_list[i] + ", " + ticket_list[i]
+          #reg_write.write(query)
+          reg_write.write(reg_line)
           reg_write.close()
           
           # Check for the type of ticket that is being registered
@@ -230,6 +232,7 @@ indicate what type of ticket they registered.</p>
 def main(server_class=BaseHTTPServer.HTTPServer,handler_class=HTTPHandler):
   try:
     ReadConFile(con_file)
+	ReadTypesFile(types_file)
     server_address = ('', int(80))
     httpd = server_class(server_address, handler_class)
     httpd.serve_forever()
